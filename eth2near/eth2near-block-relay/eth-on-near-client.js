@@ -25,7 +25,6 @@ function web3BlockToRlp (blockData) {
 const borshSchema = {
   bool: {
     kind: 'function',
-    // @ts-ignore
     ser: (b) => Buffer.from(Web3.utils.hexToBytes(b ? '0x01' : '0x00')),
     deser: (z) => readerToHex(1)(z) === '0x01'
   },
@@ -138,11 +137,10 @@ class EthOnNearClientContract extends BorshContract {
 
   // Call initialization methods on the contract.
   // If validateEthash is true will do ethash validation otherwise it won't.
-  async maybeInitialize (validateEthash, trustedSigner, robustWeb3) {
+  async maybeInitialize (hashesGcThreshold, finalizedGcThreshold, numConfirmations, validateEthash, trustedSigner, robustWeb3) {
     await this.accessKeyInit()
     let initialized = false
     try {
-      // @ts-ignore
       initialized = await this.initialized()
     } catch (e) {}
     if (!initialized) {
@@ -151,16 +149,15 @@ class EthOnNearClientContract extends BorshContract {
       const blockRlp = web3BlockToRlp(
         await robustWeb3.getBlock(lastBlockNumber)
       )
-      // @ts-ignore
       await this.init(
         {
           validate_ethash: validateEthash,
           dags_start_epoch: 0,
           dags_merkle_roots: roots.dag_merkle_roots,
           first_header: blockRlp,
-          hashes_gc_threshold: 40000,
-          finalized_gc_threshold: 500,
-          num_confirmations: 10,
+          hashes_gc_threshold: hashesGcThreshold,
+          finalized_gc_threshold: finalizedGcThreshold,
+          num_confirmations: numConfirmations,
           trusted_signer: trustedSigner
         },
         new BN('300000000000000')
@@ -169,18 +166,16 @@ class EthOnNearClientContract extends BorshContract {
     }
 
     console.log('Checking EthOnNearClient initialization.')
-    // @ts-ignore
     const firstRoot = await this.dag_merkle_root({
       epoch: 0
     })
-    // @ts-ignore
     const lastRoot = await this.dag_merkle_root({
       epoch: 511
     })
     if (
       !(
         firstRoot === '0x55b891e842e58f58956a847cbbf67821' &&
-        lastRoot === '0x4aa6ca6ebef942d8766065b2e590fd32'
+        lastRoot === '0x7a9010568819de327a24fa495029adcb'
       )
     ) {
       console.log(
@@ -193,3 +188,4 @@ class EthOnNearClientContract extends BorshContract {
 
 exports.EthOnNearClientContract = EthOnNearClientContract
 exports.web3BlockToRlp = web3BlockToRlp
+exports.borshSchema = borshSchema

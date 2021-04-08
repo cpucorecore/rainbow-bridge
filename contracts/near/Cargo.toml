@@ -3,7 +3,7 @@ members = [
     "eth-client",
     "eth-prover",
     "eth-types",
-    "mintable-fungible-token"
+    "admin-controlled"
 ]
 
 [profile.release]

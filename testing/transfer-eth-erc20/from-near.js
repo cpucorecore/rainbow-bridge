@@ -67,8 +67,8 @@ class TransferEthERC20FromNear {
     // Withdraw the token on Near side.
     try {
       const oldBalance = await backoff(10, () =>
-        nearTokenContract.get_balance({
-          owner_id: nearSenderAccountId
+        nearTokenContract.ft_balance_of({
+          account_id: nearSenderAccountId
         })
       )
       console.log(
@@ -84,7 +84,7 @@ class TransferEthERC20FromNear {
         'withdraw',
         { amount: amount, recipient: ethReceiverAddress },
         new BN('300000000000000'),
-        new BN(0)
+        new BN(1)
       )
       console.log(`tx withdraw: ${JSON.stringify(txWithdraw)}`)
 
@@ -214,8 +214,8 @@ class TransferEthERC20FromNear {
       }
       console.log(`Withdrawn ${JSON.stringify(amount)}`)
       const newBalance = await backoff(10, () =>
-        nearTokenContract.get_balance({
-          owner_id: nearSenderAccountId
+        nearTokenContract.ft_balance_of({
+          account_id: nearSenderAccountId
         })
       )
       console.log(
@@ -337,7 +337,7 @@ class TransferEthERC20FromNear {
   }
 
   static async execute ({
-    parent: { rawArgs },
+    parent: { args },
     amount,
     nearSenderAccount: nearSenderAccountId,
     ethReceiverAddress,
@@ -357,7 +357,7 @@ class TransferEthERC20FromNear {
     ethErc20Address,
     ethGasMultiplier
   }) {
-    initialCmd = rawArgs.join(' ')
+    initialCmd = args.join(' ')
     ethReceiverAddress = remove0x(ethReceiverAddress)
     const keyStore = new nearAPI.keyStores.InMemoryKeyStore()
     await keyStore.setKey(
@@ -382,7 +382,7 @@ class TransferEthERC20FromNear {
       nearErc20Account,
       {
         changeMethods: ['new', 'withdraw'],
-        viewMethods: ['get_balance']
+        viewMethods: ['ft_balance_of']
       }
     )
     const nearTokenContractBorsh = new NearMintableToken(
@@ -398,7 +398,6 @@ class TransferEthERC20FromNear {
     web3.eth.defaultAccount = ethMasterAccount.address
     ethMasterAccount = ethMasterAccount.address
     const clientContract = new web3.eth.Contract(
-      // @ts-ignore
       JSON.parse(fs.readFileSync(ethClientAbiPath)),
       ethClientAddress,
       {
@@ -407,7 +406,6 @@ class TransferEthERC20FromNear {
       }
     )
     const proverContract = new web3.eth.Contract(
-      // @ts-ignore
       JSON.parse(fs.readFileSync(ethProverAbiPath)),
       ethProverAddress,
       {
@@ -416,7 +414,6 @@ class TransferEthERC20FromNear {
       }
     )
     const ethTokenLockerContract = new web3.eth.Contract(
-      // @ts-ignore
       JSON.parse(fs.readFileSync(ethLockerAbiPath)),
       ethLockerAddress,
       {
@@ -425,7 +422,6 @@ class TransferEthERC20FromNear {
       }
     )
     const ethERC20Contract = new web3.eth.Contract(
-      // @ts-ignore
       JSON.parse(fs.readFileSync(ethErc20AbiPath)),
       ethErc20Address,
       {

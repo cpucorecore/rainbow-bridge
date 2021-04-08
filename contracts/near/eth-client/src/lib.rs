@@ -1,18 +1,21 @@
+use admin_controlled::Mask;
 use borsh::{BorshDeserialize, BorshSerialize};
 use eth_types::*;
 use near_sdk::collections::UnorderedMap;
 use near_sdk::AccountId;
-use near_sdk::{env, near_bindgen};
+use near_sdk::{env, near_bindgen, PanicOnDefault};
 
-#[cfg(target_arch = "wasm32")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+#[cfg(test)]
+use serde::{Deserialize, Serialize};
+
+near_sdk::setup_alloc!();
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests;
 
 #[derive(Default, Debug, Clone, BorshDeserialize, BorshSerialize)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
 pub struct DoubleNodeWithMerkleProof {
     pub dag_nodes: Vec<H512>, // [H512; 2]
     pub proof: Vec<H128>,
@@ -58,8 +61,10 @@ pub struct HeaderInfo {
     pub number: u64,
 }
 
+const PAUSE_ADD_BLOCK_HEADER: Mask = 1;
+
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct EthClient {
     /// Whether client validates the PoW when accepting the header. Should only be set to `false`
     /// for debugging, testing, diagnostic purposes when used with Ganache or in PoA testnets
@@ -98,12 +103,8 @@ pub struct EthClient {
     /// If set, block header added by trusted signer will skip validation and added by
     /// others will be immediately rejected, used in PoA testnets
     trusted_signer: Option<AccountId>,
-}
-
-impl Default for EthClient {
-    fn default() -> Self {
-        env::panic(b"EthClient is not initialized");
-    }
+    /// Mask determining all paused functions
+    paused: Mask,
 }
 
 #[near_bindgen]
@@ -136,6 +137,7 @@ impl EthClient {
             headers: UnorderedMap::new(b"h".to_vec()),
             infos: UnorderedMap::new(b"i".to_vec()),
             trusted_signer,
+            paused: Mask::default(),
         };
         res.canonical_header_hashes
             .insert(&header_number, &header_hash);
@@ -204,6 +206,7 @@ impl EthClient {
         #[serializer(borsh)] block_header: Vec<u8>,
         #[serializer(borsh)] dag_nodes: Vec<DoubleNodeWithMerkleProof>,
     ) {
+        self.check_not_paused(PAUSE_ADD_BLOCK_HEADER);
         let header: BlockHeader = rlp::decode(block_header.as_slice()).unwrap();
 
         if let Some(trusted_signer) = &self.trusted_signer {
@@ -366,8 +369,8 @@ impl EthClient {
         //
         U256((result.0).0.into()) < U256(ethash::cross_boundary(header.difficulty.0))
             && (!self.validate_ethash
-                || (header.difficulty < header.difficulty * 101 / 100
-                    && header.difficulty > header.difficulty * 99 / 100))
+                || (header.difficulty < prev.difficulty * 101 / 100
+                    && header.difficulty > prev.difficulty * 99 / 100))
             && header.gas_used <= header.gas_limit
             && header.gas_limit < prev.gas_limit * 1025 / 1024
             && header.gas_limit > prev.gas_limit * 1023 / 1024
@@ -395,7 +398,7 @@ impl EthClient {
         let pair = ethash::hashimoto_with_hasher(
             header_hash.0,
             nonce.0,
-            ethash::get_full_size(header_number as usize / 30000),
+            ethash::get_full_size(header_number / 30000),
             |offset| {
                 let idx = *index.borrow_mut();
                 *index.borrow_mut() += 1;
@@ -420,3 +423,5 @@ impl EthClient {
         (H256(pair.0), H256(pair.1))
     }
 }
+
+admin_controlled::impl_admin_controlled!(EthClient, paused);

@@ -5,7 +5,8 @@ set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-if [[ -z "$BUILDKITE" ]]; then
+if [[ -z "$BUILDKITE" ]] && [[ "$(uname -s)" != "Darwin" ]];
+then
      userflag="-u $UID:$UID"
 else
      userflag=""
@@ -17,6 +18,6 @@ docker run \
      -w /host/eth-client \
      -e RUSTFLAGS='-C link-arg=-s' \
      nearprotocol/contract-builder \
-     cargo +stable build --target wasm32-unknown-unknown --release
+     /bin/bash -c "rustup target add wasm32-unknown-unknown; cargo build --target wasm32-unknown-unknown --release"
 
 cp $DIR/../target/wasm32-unknown-unknown/release/eth_client.wasm $DIR/../res/

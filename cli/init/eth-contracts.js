@@ -122,14 +122,27 @@ class InitEthLocker {
     ethProverAddress,
     ethLockerAbiPath,
     ethLockerBinPath,
+    ethAdminAddress,
     ethGasMultiplier
   }) {
+    if (ethAdminAddress === '') {
+      const web3 = new Web3('')
+      ethAdminAddress = web3.eth.accounts.privateKeyToAccount(ethMasterSk).address
+    }
+
+    console.log('Using as locker admin:', ethAdminAddress)
     const ethContractInitializer = new EthContractInitializer()
+    const minBlockAcceptanceHeight = 0
+    const pausedFlag = 0
+
     const success = await ethContractInitializer.execute(
       {
         args: [
           Buffer.from(nearTokenFactoryAccount, 'utf8'),
-          ethProverAddress
+          ethProverAddress,
+          minBlockAcceptanceHeight,
+          ethAdminAddress,
+          pausedFlag
         ],
         gas: 5000000,
         ethContractAbiPath: ethLockerAbiPath,
@@ -144,7 +157,8 @@ class InitEthLocker {
       process.exit(1)
     }
     return {
-      ethLockerAddress: success.ethContractAddress
+      ethLockerAddress: success.ethContractAddress,
+      ethAdminAddress: ethAdminAddress
     }
   }
 }
@@ -159,8 +173,34 @@ class InitEthClient {
     ethEd25519Address,
     ethClientAbiPath,
     ethClientBinPath,
+    ethAdminAddress,
     ethGasMultiplier
   }) {
+    if (ethAdminAddress === '') {
+      const web3 = new Web3('')
+      ethAdminAddress = web3.eth.accounts.privateKeyToAccount(ethMasterSk)
+        .address
+    }
+
+    ethClientLockDuration = Number(ethClientLockDuration)
+    ethClientReplaceDuration = Number(ethClientReplaceDuration)
+
+    // replace duration should be at least twice as long as lock duration or 20 minutes longer
+    const minAllowedReplaceDuration = Math.min(
+      ethClientLockDuration + 20 * 60,
+      2 * ethClientLockDuration
+    )
+
+    if (ethClientReplaceDuration < minAllowedReplaceDuration) {
+      throw new Error(
+        `Invalid parameters ${JSON.stringify({
+          ethClientLockDuration,
+          ethClientReplaceDuration,
+          minAllowedReplaceDuration
+        })}`
+      )
+    }
+
     const ethContractInitializer = new EthContractInitializer()
     const web3 = new Web3(ethNodeUrl)
     const lockEthAmount = web3.utils.toBN(ethClientLockEthAmount)
@@ -178,7 +218,9 @@ class InitEthClient {
           ethEd25519Address,
           lockEthAmount,
           lockDuration,
-          replaceDuration
+          replaceDuration,
+          ethAdminAddress,
+          0
         ],
         gas: 5000000,
         ethContractAbiPath: ethClientAbiPath,
@@ -205,12 +247,19 @@ class InitEthProver {
     ethClientAddress,
     ethProverAbiPath,
     ethProverBinPath,
+    ethAdminAddress,
     ethGasMultiplier
   }) {
+    if (ethAdminAddress === '') {
+      const web3 = new Web3('')
+      ethAdminAddress = web3.eth.accounts.privateKeyToAccount(ethMasterSk)
+        .address
+    }
+
     const ethContractInitializer = new EthContractInitializer()
     const success = await ethContractInitializer.execute(
       {
-        args: [ethClientAddress],
+        args: [ethClientAddress, ethAdminAddress, 0],
         gas: 3000000,
         ethContractAbiPath: ethProverAbiPath,
         ethContractBinPath: ethProverBinPath,

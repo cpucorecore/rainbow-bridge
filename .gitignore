@@ -1,17 +1,11 @@
-**/node_modules
-.idea
-**/.idea
-**/.near
-**/.vscode
-*.pyc
+node_modules
+artifacts
+cache
+coverage
+coverage.json
+testdata
+target
 
-**/*.swp
-**/*.tgz
-
-**/.yarn*
-
-write_config.js
-**/*transfer-eth-erc20-from-near.log.json
-
-**/*.log.json
-/vendor
+eth2near/ethashproof/cmd/epoch/epoch
+eth2near/ethashproof/cmd/relayer/relayer
+eth2near/ethashproof/cmd/cache/cache
